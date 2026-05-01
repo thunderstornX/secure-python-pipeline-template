@@ -1,0 +1,76 @@
+name: PR Quick Check
+
+# Lightweight gate that runs on every PR before the heavier security.yml.
+# Goal: < 90 seconds to a developer-actionable signal (Bandit + pip-audit only).
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "**/*.py"
+      - "**/requirements*.txt"
+      - "pyproject.toml"
+      - "bandit.yml"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  # Cancel in-flight runs when a new commit lands on the same PR.
+  group: pr-check-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  bandit:
+    name: "Bandit (changed files only)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Bandit
+        run: pip install bandit==1.8.6
+
+      - name: Compute changed Python files
+        id: changed
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          files=$(git diff --name-only --diff-filter=ACMRT "$base" "$head" -- '*.py' | tr '\n' ' ')
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+          echo "Changed Python files: $files"
+
+      - name: Run Bandit on changed files
+        if: steps.changed.outputs.files != ''
+        run: bandit -c bandit.yml ${{ steps.changed.outputs.files }}
+
+  pip-audit:
+    name: "pip-audit (dependency CVEs)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pip-audit
+        run: pip install pip-audit==2.7.3
+
+      - name: Audit top-level requirements
+        run: |
+          if [ -f requirements.txt ]; then
+            pip-audit -r requirements.txt --strict
+          else
+            echo "No top-level requirements.txt; skipping."
+          fi
