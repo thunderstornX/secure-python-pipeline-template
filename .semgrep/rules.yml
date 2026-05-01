@@ -1,0 +1,189 @@
+# Project-local Semgrep rules for Python security patterns.
+#
+# These rules supplement the public OWASP Top 10 and Python rulesets with
+# patterns common in our codebases but inconsistently caught upstream.
+# Each rule includes a CWE link and a remediation hint in the message body.
+#
+# Conventions:
+#   severity ERROR   -> the security pipeline must fail on a match
+#   severity WARNING -> the pipeline reports but does not fail
+#   severity INFO    -> hygiene reminder, never fails
+
+rules:
+
+  # ---------------------------------------------------------------------------
+  # 1. Hardcoded credential-shaped string assignment
+  # ---------------------------------------------------------------------------
+  - id: ali-hardcoded-secret-assignment
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      owasp: "A07:2021 Identification and Authentication Failures"
+    message: >-
+      Possible hard-coded credential. Load from environment variables via
+      os.getenv() or a settings object (pydantic-settings) instead of
+      committing the value to source control.
+    pattern-regex: >-
+      (?i)\b(password|passwd|pwd|secret|api[_-]?key|access[_-]?key|token|auth[_-]?token|client[_-]?secret)\s*=\s*["'][A-Za-z0-9_\-]{8,}["']
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/conftest.py"
+        - "**/fixtures/**"
+
+  # ---------------------------------------------------------------------------
+  # 2. SQL injection: f-string or .format() inside an execute() call
+  # ---------------------------------------------------------------------------
+  - id: ali-sql-injection-f-string
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+      owasp: "A03:2021 Injection"
+    message: >-
+      SQL string is interpolated with code-controllable input. Use
+      parameterised queries (?, :name, or your ORM's bound parameters)
+      instead of f-strings or .format().
+    pattern-either:
+      - pattern: $CURSOR.execute(f"...", ...)
+      - pattern: $CURSOR.executemany(f"...", ...)
+      - pattern: $CONN.execute(f"...", ...)
+      - pattern: $CURSOR.execute("...".format(...), ...)
+
+  # ---------------------------------------------------------------------------
+  # 3. Insecure deserialisation: pickle / yaml.load / marshal
+  # ---------------------------------------------------------------------------
+  - id: ali-insecure-deserialisation
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+      owasp: "A08:2021 Software and Data Integrity Failures"
+    message: >-
+      Deserialising untrusted input via pickle / yaml.load / marshal allows
+      arbitrary code execution. Use json, yaml.safe_load, or a schema-driven
+      parser (Pydantic) instead.
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+      - pattern: cPickle.loads(...)
+      - pattern: marshal.loads(...)
+      - patterns:
+          - pattern: yaml.load(...)
+          - pattern-not: yaml.load(..., Loader=yaml.SafeLoader)
+          - pattern-not: yaml.load(..., Loader=SafeLoader)
+
+  # ---------------------------------------------------------------------------
+  # 4. Web framework debug=True in non-test code
+  # ---------------------------------------------------------------------------
+  - id: ali-web-framework-debug-enabled
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-489: Active Debug Code"
+      owasp: "A05:2021 Security Misconfiguration"
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/test_*.py"
+    message: >-
+      debug=True exposes interactive tracebacks, configuration, and (Flask)
+      a remote-code-execution debugger. Drive this from an environment
+      variable and default to False.
+    pattern-either:
+      - pattern: $APP.run(..., debug=True, ...)
+      - pattern: app.run(..., debug=True, ...)
+      - pattern: |
+          DEBUG = True
+      - pattern: |
+          settings.DEBUG = True
+
+  # ---------------------------------------------------------------------------
+  # 5. Weak password hashing (MD5 / SHA1 / unsalted SHA-256)
+  # ---------------------------------------------------------------------------
+  - id: ali-weak-password-hash
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      owasp: "A02:2021 Cryptographic Failures"
+    message: >-
+      MD5 / SHA1 are not safe for password storage. Use bcrypt, scrypt,
+      argon2id, or Django's PasswordHasher. Plain SHA-256 is also unsafe
+      for passwords (no work factor, no salt baked in).
+    pattern-either:
+      - pattern: hashlib.md5(...).hexdigest()
+      - pattern: hashlib.sha1(...).hexdigest()
+      - pattern: hashlib.new("md5", ...)
+      - pattern: hashlib.new("sha1", ...)
+
+  # ---------------------------------------------------------------------------
+  # 6. Server-Side Request Forgery: requests with f-string URL
+  # ---------------------------------------------------------------------------
+  - id: ali-ssrf-fstring-in-url
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-918: Server-Side Request Forgery"
+      owasp: "A10:2021 Server-Side Request Forgery"
+    message: >-
+      An f-string flows into an outbound HTTP URL. Validate against an
+      allow-list, resolve the hostname once, and reject private/loopback
+      ranges before issuing the request.
+    pattern-either:
+      - pattern: requests.get(f"...", ...)
+      - pattern: requests.post(f"...", ...)
+      - pattern: requests.request(..., url=f"...", ...)
+      - pattern: urllib.request.urlopen(f"...")
+      - pattern: httpx.get(f"...", ...)
+      - pattern: httpx.post(f"...", ...)
+
+  # ---------------------------------------------------------------------------
+  # 7. Command injection: shell=True or os.system with f-string
+  # ---------------------------------------------------------------------------
+  - id: ali-command-injection
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+      owasp: "A03:2021 Injection"
+    message: >-
+      Building a shell command with code-controllable input enables OS
+      command injection. Pass argv as a list with shell=False and validate
+      executable paths.
+    pattern-either:
+      - pattern: subprocess.run(f"...", shell=True, ...)
+      - pattern: subprocess.call(f"...", shell=True, ...)
+      - pattern: subprocess.Popen(f"...", shell=True, ...)
+      - pattern: subprocess.check_output(f"...", shell=True, ...)
+      - pattern: os.system(f"...")
+      - pattern: os.popen(f"...")
+
+  # ---------------------------------------------------------------------------
+  # 8. Dynamic code evaluation: eval / exec / compile-to-exec
+  # ---------------------------------------------------------------------------
+  - id: ali-dynamic-code-evaluation
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code"
+      owasp: "A03:2021 Injection"
+    message: >-
+      eval / exec / compile execute arbitrary Python. If you need to parse
+      a structured expression, use ast.literal_eval, json.loads, or a
+      domain parser (e.g., simpleeval).
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+      - pattern: compile(..., ..., "exec")
+      - pattern: compile(..., ..., "eval")
