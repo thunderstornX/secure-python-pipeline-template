@@ -1,0 +1,43 @@
+{
+  "title": "Secure Python Pipeline Template: A Four-Gate DevSecOps Pipeline for Python Projects",
+  "upload_type": "software",
+  "description": "An immediately forkable GitHub Actions pipeline template integrating Semgrep (SAST), Trufflehog v3 (secrets), Bandit (Python vulns), and pip-audit (dependency CVEs) with custom Python security rules and an evaluation harness against five real-world OSS Python projects.",
+  "creators": [
+    {
+      "name": "Bhutto, Ali Murtaza",
+      "orcid": "0009-0007-2787-943X",
+      "affiliation": "Shaheed Zulfikar Ali Bhutto Institute of Science and Technology (SZABIST)"
+    }
+  ],
+  "keywords": [
+    "DevSecOps",
+    "CI/CD",
+    "SAST",
+    "Python",
+    "GitHub Actions",
+    "OWASP",
+    "secure SDLC",
+    "Semgrep",
+    "Bandit",
+    "Trufflehog",
+    "pip-audit"
+  ],
+  "license": "MIT",
+  "access_right": "open",
+  "language": "eng",
+  "related_identifiers": [
+    {
+      "identifier": "10.5281/zenodo.16921792",
+      "relation": "cites",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "10.5281/zenodo.16924934",
+      "relation": "cites",
+      "scheme": "doi"
+    }
+  ],
+  "communities": [
+    {"identifier": "open-science"}
+  ]
+}

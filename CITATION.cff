@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+title: "Secure Python Pipeline Template: A Four-Gate DevSecOps Pipeline for Python Projects"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - given-names: Ali Murtaza
+    family-names: Bhutto
+    orcid: "https://orcid.org/0009-0007-2787-943X"
+    affiliation: "Shaheed Zulfikar Ali Bhutto Institute of Science and Technology (SZABIST)"
+    email: alibhutto101112@gmail.com
+doi: "10.5281/zenodo.XXXXXXX"
+url: "https://github.com/thunderstornX/secure-python-pipeline-template"
+repository-code: "https://github.com/thunderstornX/secure-python-pipeline-template"
+license: MIT
+version: "1.0.0"
+date-released: "2025-01-01"
+keywords:
+  - DevSecOps
+  - CI/CD
+  - SAST
+  - Python
+  - GitHub Actions
+  - OWASP
+  - secure SDLC
+  - Semgrep
+  - Bandit
+  - Trufflehog
+abstract: >-
+  An immediately forkable GitHub Actions pipeline template for Python projects
+  that integrates four automated security gates: Semgrep for Static Application
+  Security Testing with the OWASP ruleset, Trufflehog v3 for secrets detection,
+  Bandit for Python-specific vulnerability scanning, and pip-audit for
+  dependency vulnerability checking. Designed for adoption in under 10 minutes.
