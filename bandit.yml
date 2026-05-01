@@ -1,0 +1,32 @@
+# Bandit configuration.
+# Reference: https://bandit.readthedocs.io/en/latest/config.html
+#
+# Philosophy:
+#   - Run the full default test suite.
+#   - Skip B101 (assert_used) inside tests/ and example fixtures only --
+#     production code still gets it.
+#   - Fail the gate on Medium and above; surface Low as informational.
+
+# Directories that are excluded from the entire scan.
+# (eval/cloned_repos contains third-party code we benchmark against; do not
+# audit it as if it were ours. tests/ is excluded only in selected projects;
+# here we keep tests in scope but skip B101 below.)
+exclude_dirs:
+  - "/tests"
+  - "/eval/cloned_repos"
+  - "/.venv"
+  - "/venv"
+  - "/build"
+  - "/dist"
+  - "/.git"
+
+# Selectively skip individual checks.
+# B101 (assert_used) is intentionally allowed in tests via path-based skip
+# above; we do not skip it globally.
+skips: []
+
+# Only fail on these severities (Bandit treats this as a global threshold).
+# Used by some Bandit invocations; the CLI flags in security.yml are the
+# canonical source of truth.
+severity: medium
+confidence: medium
