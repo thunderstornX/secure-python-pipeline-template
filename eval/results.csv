@@ -1,0 +1,6 @@
+project,bandit_findings_medium_high,bandit_gate,pip_audit_vulns,pip_audit_gate,semgrep_findings,semgrep_gate,trufflehog_verified_secrets,trufflehog_gate,overall
+httpie,1,FAIL,0,PASS,3,FAIL,0,PASS,FAIL
+rich,0,PASS,0,PASS,0,PASS,0,PASS,PASS
+fastapi,0,PASS,0,PASS,1,FAIL,0,PASS,FAIL
+black,0,PASS,0,PASS,0,PASS,0,PASS,PASS
+ruff,0,PASS,0,PASS,0,PASS,0,PASS,PASS
