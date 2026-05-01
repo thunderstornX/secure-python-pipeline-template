@@ -1,0 +1,148 @@
+name: Security Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Re-run weekly so new CVEs in dependencies get caught even on quiet repos.
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: read
+
+jobs:
+  semgrep:
+    name: "Gate 1: SAST (Semgrep)"
+    runs-on: ubuntu-latest
+    container:
+      image: returntocorp/semgrep:1.96.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep with OWASP, Python, and project-local rules
+        run: |
+          semgrep ci \
+            --config p/owasp-top-ten \
+            --config p/python \
+            --config .semgrep/rules.yml \
+            --error \
+            --json --output=semgrep-report.json \
+            --metrics=off \
+            --exclude=eval/cloned_repos
+        env:
+          # SEMGREP_APP_TOKEN is optional; if absent, semgrep ci runs in standalone mode.
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload Semgrep report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-report
+          path: semgrep-report.json
+          retention-days: 30
+
+  trufflehog:
+    name: "Gate 2: Secrets (Trufflehog v3)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history is required for Trufflehog to scan past commits, not just the diff.
+          fetch-depth: 0
+
+      - name: Run Trufflehog (verified secrets only)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ""
+          head: HEAD
+          extra_args: --only-verified --config=.trufflehog/config.yml
+
+  bandit:
+    name: "Gate 3: Python Security (Bandit)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Bandit
+        run: pip install bandit==1.8.6
+
+      - name: Run Bandit (machine-readable JSON)
+        run: bandit -r . -c bandit.yml -f json -o bandit-report.json --exit-zero
+
+      - name: Run Bandit (fail-fast text output)
+        run: bandit -r . -c bandit.yml
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          retention-days: 30
+
+  pip-audit:
+    name: "Gate 4: Dependencies (pip-audit)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pip-audit
+        run: pip install pip-audit==2.7.3
+
+      - name: Audit every requirements file in the repo
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          found=0
+          for req in **/requirements*.txt; do
+            # Skip vendored / cloned trees.
+            case "$req" in
+              eval/cloned_repos/*) continue ;;
+            esac
+            echo "::group::Auditing $req"
+            pip-audit -r "$req" --strict
+            echo "::endgroup::"
+            found=1
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "No requirements*.txt files found; skipping."
+          fi
+
+  summary:
+    name: "Pipeline Summary"
+    needs: [semgrep, trufflehog, bandit, pip-audit]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Per-gate result table
+        run: |
+          {
+            echo "## Security Pipeline Results"
+            echo ""
+            echo "| Gate | Tool | Result |"
+            echo "| --- | --- | --- |"
+            echo "| 1 | Semgrep (SAST) | ${{ needs.semgrep.result }} |"
+            echo "| 2 | Trufflehog (secrets) | ${{ needs.trufflehog.result }} |"
+            echo "| 3 | Bandit (Python) | ${{ needs.bandit.result }} |"
+            echo "| 4 | pip-audit (deps) | ${{ needs.pip-audit.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
