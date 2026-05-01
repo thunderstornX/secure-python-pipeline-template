@@ -1,0 +1,25 @@
+# Trufflehog v3 configuration.
+# Reference: https://github.com/trufflesecurity/trufflehog
+#
+# We restrict scanning to verified secrets (live, currently-valid credentials)
+# in the security pipeline so the gate is not noisy with historical placeholders.
+# To audit history exhaustively, run locally without --only-verified.
+
+# Detector configuration: leave the full default detector set enabled. To
+# disable a noisy or irrelevant detector for this repo, list its ID under
+# 'exclude_detectors' below.
+exclude_detectors: []
+
+# Path-based exclusions: directories whose contents are intentionally fixture
+# data, vendored third-party code, or test secrets.
+exclude_paths:
+  # Test fixtures with fake secrets used by example-project tests.
+  - "example-project/tests/fixtures/.*"
+  # Vendored OSS clones used by the evaluation harness.
+  - "eval/cloned_repos/.*"
+  # Compiled paper artefacts.
+  - "paper/.*\\.pdf$"
+
+# By default, Trufflehog scans the working tree only. The CI workflow passes
+# fetch-depth: 0 so the action can scan the full git history when run with
+# `base: ""` and `head: HEAD`.
