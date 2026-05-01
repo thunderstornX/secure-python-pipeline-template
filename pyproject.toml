@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "secure-python-pipeline-template"
+version = "1.0.0"
+description = "A four-gate DevSecOps pipeline template for Python projects (Semgrep + Trufflehog + Bandit + pip-audit)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Ali Murtaza Bhutto", email = "alibhutto101112@gmail.com"},
+]
+keywords = [
+    "DevSecOps",
+    "CI/CD",
+    "SAST",
+    "Python",
+    "GitHub Actions",
+    "OWASP",
+    "secure SDLC",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "bandit>=1.8",
+    "pip-audit>=2.7",
+]
+
+[project.optional-dependencies]
+example = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "bcrypt>=4.2",
+    "python-jose[cryptography]>=3.3",
+    "sqlalchemy>=2.0",
+]
+eval = [
+    "gitpython>=3.1",
+    "tabulate>=0.9",
+]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "httpx>=0.28",
+]
+
+[project.urls]
+Repository = "https://github.com/thunderstornX/secure-python-pipeline-template"
+Issues = "https://github.com/thunderstornX/secure-python-pipeline-template/issues"
+
+[tool.bandit]
+# Bandit configuration; see also bandit.yml at repo root for the canonical config.
+exclude_dirs = ["tests", "eval/cloned_repos", ".venv"]
+
+[tool.pytest.ini_options]
+testpaths = ["example-project/tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"
