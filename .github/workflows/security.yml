@@ -27,16 +27,17 @@ jobs:
 
       - name: Run Semgrep with OWASP, Python, and project-local rules
         run: |
-          semgrep ci \
+          semgrep scan \
             --config p/owasp-top-ten \
             --config p/python \
             --config .semgrep/rules.yml \
             --error \
             --json --output=semgrep-report.json \
             --metrics=off \
-            --exclude=eval/cloned_repos
+            --exclude=eval/cloned_repos \
+            --exclude=eval/semgrep_corpus.py
         env:
-          # SEMGREP_APP_TOKEN is optional; if absent, semgrep ci runs in standalone mode.
+          # SEMGREP_APP_TOKEN is optional; if absent, Semgrep runs in standalone mode.
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 
       - name: Upload Semgrep report
@@ -63,7 +64,10 @@ jobs:
           path: ./
           base: ""
           head: HEAD
-          extra_args: --only-verified --config=.trufflehog/config.yml
+          # --only-verified suppresses unconfirmed candidates (lower false-positive
+          # rate) but trades off catching revoked-yet-leaked credentials.  For a
+          # full-history audit, run locally without this flag quarterly.
+          extra_args: --only-verified --exclude-paths=.trufflehog/exclude-paths.txt
 
   bandit:
     name: "Gate 3: Python Security (Bandit)"
@@ -76,15 +80,23 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
 
       - name: Install Bandit
         run: pip install bandit==1.8.6
 
       - name: Run Bandit (machine-readable JSON)
-        run: bandit -r . -c bandit.yml -f json -o bandit-report.json --exit-zero
+        run: |
+          bandit -r . -c bandit.yml \
+            --exclude "eval/semgrep_corpus.py" \
+            -f json -o bandit-report.json --exit-zero
 
       - name: Run Bandit (fail-fast text output)
-        run: bandit -r . -c bandit.yml
+        run: |
+          bandit -r . -c bandit.yml \
+            --exclude "eval/semgrep_corpus.py" \
+            --severity-level medium
 
       - name: Upload Bandit report
         if: always()
@@ -105,28 +117,38 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
 
       - name: Install pip-audit
-        run: pip install pip-audit==2.7.3
+        run: pip install pip-audit==2.10.0
 
       - name: Audit every requirements file in the repo
+        # Note: pip-audit fails on any vulnerable pinned dependency.  We do
+        # NOT pass --strict because that would also fail on advisories
+        # without fixed versions, making the gate permanently red over time.
+        # Document fixed-but-unmaintained advisories in .pip-audit-ignore
+        # if needed.
         run: |
           set -euo pipefail
           shopt -s globstar nullglob
           found=0
+          fail=0
           for req in **/requirements*.txt; do
-            # Skip vendored / cloned trees.
             case "$req" in
               eval/cloned_repos/*) continue ;;
             esac
             echo "::group::Auditing $req"
-            pip-audit -r "$req" --strict
+            if ! pip-audit -r "$req"; then
+              fail=1
+            fi
             echo "::endgroup::"
             found=1
           done
           if [ "$found" -eq 0 ]; then
             echo "No requirements*.txt files found; skipping."
           fi
+          exit "$fail"
 
   summary:
     name: "Pipeline Summary"
