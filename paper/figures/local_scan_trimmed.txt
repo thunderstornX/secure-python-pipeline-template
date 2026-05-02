@@ -1,0 +1,25 @@
+[1m=== Secure Python Pipeline -- Local Scan ===[0m
+Target : example-project/
+Reports: .scan-reports
+
+[1mGate 1: SAST (Semgrep)[0m
+Ran 162 rules on 12 files: 0 findings.
+[0;32m[PASS][0m Semgrep: no findings
+
+[1mGate 2: Secrets (Trufflehog v3)[0m
+[1;33m[WARN][0m trufflehog not found; skipping Gate 2.
+
+[1mGate 3: Python Security (Bandit)[0m
+Test results:
+        No issues identified.
+Code scanned:
+        Total lines of code: 261
+[0;32m[PASS][0m Bandit: no medium/high issues
+
+[1mGate 4: Dependencies (pip-audit)[0m
+[0;36m[INFO][0m Auditing example-project/requirements.txt
+No known vulnerabilities found
+[0;32m[PASS][0m pip-audit: no known CVEs
+
+[1m=== Pipeline Summary ===[0m
+[0;32m[1mAll gates passed. Ready to push.[0m

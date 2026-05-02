@@ -1,0 +1,36 @@
+[httpie]
+  Bandit    : 0 med/high, 0 low  -> [0;32mPASS[0m
+  pip-audit : 0 vulns             -> [0;32mPASS[0m
+  Semgrep   : 1 findings (live)   -> [0;31mFAIL[0m
+  Trufflehog: 0 secrets           -> [0;32mPASS[0m
+  Overall   : [0;31mFAIL[0m
+
+[rich]
+  Bandit    : 0 med/high, 0 low  -> [0;32mPASS[0m
+  pip-audit : 0 vulns             -> [0;32mPASS[0m
+  Semgrep   : 1 findings (live)   -> [0;31mFAIL[0m
+  Trufflehog: 0 secrets           -> [0;32mPASS[0m
+  Overall   : [0;31mFAIL[0m
+
+[fastapi]
+  Bandit    : 0 med/high, 0 low  -> [0;32mPASS[0m
+  pip-audit : 0 vulns             -> [0;32mPASS[0m
+  Semgrep   : 12 findings (live)  -> [0;31mFAIL[0m
+  Trufflehog: 0 secrets           -> [0;32mPASS[0m
+  Overall   : [0;31mFAIL[0m
+
+[black]
+  Bandit    : 0 med/high, 0 low  -> [0;32mPASS[0m
+  pip-audit : 0 vulns             -> [0;32mPASS[0m
+  Semgrep   : 12 findings (live)  -> [0;31mFAIL[0m
+  Trufflehog: 0 secrets           -> [0;32mPASS[0m
+  Overall   : [0;31mFAIL[0m
+
+[ruff]
+  Bandit    : 0 med/high, 0 low  -> [0;32mPASS[0m
+  pip-audit : 0 vulns             -> [0;32mPASS[0m
+  Semgrep   : 4 findings (live)   -> [0;31mFAIL[0m
+  Trufflehog: 0 secrets           -> [0;32mPASS[0m
+  Overall   : [0;31mFAIL[0m
+
+Summary: 0/5 pass | 5 fail | 0 error | 0 skip

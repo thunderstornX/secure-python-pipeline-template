@@ -1,0 +1,13 @@
+[1m============================= test session starts ==============================[0m
+platform linux -- Python 3.10.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: /home/alim/.../secure-python-pipeline-template
+configfile: pyproject.toml
+plugins: anyio-4.13.0, asyncio-1.3.0
+asyncio: mode=auto, asyncio_default_fixture_loop_scope=None
+collected 25 items
+
+tests/test_items.py [0;32m.........[0m                                            [ 36%]
+tests/test_semgrep_rules.py [0;32m.[0m                                            [ 40%]
+tests/test_users.py [0;32m...............[0m                                      [100%]
+
+[0;32m============================== 25 passed in 9.64s ==============================[0m

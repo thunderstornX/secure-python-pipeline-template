@@ -1,0 +1,86 @@
+
+[1m=== Secure Python Pipeline — Local Scan ===[0m
+Target : example-project/
+Reports: /home/alim/Desktop/my_github_portfolio/repos/secure-python-pipeline-template/.scan-reports
+
+[1mGate 1: SAST (Semgrep)[0m
+               
+               
+┌─────────────┐
+│ Scan Status │
+└─────────────┘
+  Scanning 10 files tracked by git with 556 Code rules:
+                                                                                                                        
+  Language      Rules   Files          Origin      Rules                                                                
+ ─────────────────────────────        ───────────────────                                                               
+  <multilang>       6      10          Community     548                                                                
+  python          159       9          Custom          8                                                                
+                                                                                                                        
+                
+                
+┌──────────────┐
+│ Scan Summary │
+└──────────────┘
+✅ Scan completed successfully.
+ • Findings: 0 (0 blocking)
+ • Rules run: 165
+ • Targets scanned: 10
+ • Parsed lines: ~100.0%
+ • Scan skipped: 
+   ◦ Files matching .semgrepignore patterns: 7
+ • Scan was limited to files tracked by git
+ • For a detailed list of skipped files and lines, run semgrep with the --verbose flag
+Ran 165 rules on 10 files: 0 findings.
+(need more rules? `semgrep login` for additional free Semgrep Registry rules)
+
+If Semgrep missed a finding, please send us feedback to let us know!
+See https://semgrep.dev/docs/reporting-false-negatives/
+[0;32m[PASS][0m Semgrep: no findings
+
+[1mGate 2: Secrets (Trufflehog v3)[0m
+[1;33m[WARN][0m trufflehog not found; skipping Gate 2.
+[1;33m[WARN][0m Install: curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+
+[1mGate 3: Python Security (Bandit)[0m
+[main]	INFO	profile include tests: None
+[main]	INFO	profile exclude tests: None
+[main]	INFO	cli include tests: None
+[main]	INFO	cli exclude tests: None
+[json]	INFO	JSON output written to file: /home/alim/Desktop/my_github_portfolio/repos/secure-python-pipeline-template/.scan-reports/bandit-report.json
+[main]	INFO	profile include tests: None
+[main]	INFO	profile exclude tests: None
+[main]	INFO	cli include tests: None
+[main]	INFO	cli exclude tests: None
+[main]	INFO	using config: /home/alim/Desktop/my_github_portfolio/repos/secure-python-pipeline-template/bandit.yml
+[main]	INFO	running on Python 3.10.12
+Run started:2026-05-02 01:40:20.249855+00:00
+
+Test results:
+	No issues identified.
+
+Code scanned:
+	Total lines of code: 327
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 0
+		Medium: 0
+		High: 0
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 0
+		Medium: 0
+		High: 0
+Files skipped (0):
+[0;32m[PASS][0m Bandit: no medium/high issues
+
+[1mGate 4: Dependencies (pip-audit)[0m
+[0;36m[INFO][0m Auditing example-project/requirements.txt
+No known vulnerabilities found
+[0;32m[PASS][0m pip-audit: no known CVEs
+
+[1m=== Pipeline Summary ===[0m
+[0;32m[1mAll gates passed. Ready to push.[0m

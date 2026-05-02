@@ -1,19 +1,21 @@
 # secure-python-pipeline-template
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX) <!-- DOI placeholder; replaced on first Zenodo deposit -->
 [![Security Pipeline](https://github.com/thunderstornX/secure-python-pipeline-template/actions/workflows/security.yml/badge.svg)](https://github.com/thunderstornX/secure-python-pipeline-template/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A composable, four-gate DevSecOps pipeline template for Python projects —
-integrating SAST (Semgrep), secret detection (Trufflehog v3), AST analysis
-(Bandit), and dependency auditing (pip-audit) into a single reproducible
-GitHub Actions workflow.
+A composable, four-gate DevSecOps pipeline template for Python — integrating
+SAST (Semgrep), secret detection (Trufflehog v3), AST analysis (Bandit), and
+dependency auditing (pip-audit) into a single reproducible GitHub Actions
+workflow.
 
-Described in: *A Composable Four-Gate DevSecOps Pipeline for Python* (see [`paper/paper.pdf`](paper/paper.pdf)).
+Described in [`paper/paper.pdf`](paper/paper.pdf): *A Composable Four-Gate
+DevSecOps Pipeline for Python: Integrating SAST, Secret Detection, AST
+Analysis, and Dependency Auditing.*
 
 ---
 
-## Gates
+## What this gives you
 
 | # | Tool | What it catches | Fails pipeline? |
 |---|------|-----------------|-----------------|
@@ -22,87 +24,41 @@ Described in: *A Composable Four-Gate DevSecOps Pipeline for Python* (see [`pape
 | 3 | **Bandit** | Python AST: subprocess misuse, weak crypto, SSL bypass | Yes (medium+) |
 | 4 | **pip-audit** | CVEs in pinned dependencies (PyPA + OSV) | Yes |
 
-All four gates run in parallel. A summary job posts a gate table to the GitHub Actions job summary.
+Plus:
+
+- **8 custom CWE-mapped Semgrep rules** with a self-test corpus that proves every rule fires (`tests/test_semgrep_rules.py`).
+- **Reference FastAPI app** (`example-project/`) demonstrating parameterised SQL, bcrypt + HMAC bearer-token auth, IDOR-safe item ownership, TOCTOU-safe user creation. **25 passing tests.**
+- **Eval harness** (`eval/run_eval.py`) that runs all four gates against five real OSS projects (httpie, rich, fastapi, black, ruff) and produces a reproducible CSV.
+- **`scripts/local_scan.sh`** that mirrors the CI gates exactly.
 
 ---
 
 ## Quickstart
 
-### 1. Use this template
-
-Click **"Use this template"** on GitHub, or clone manually:
-
 ```bash
 git clone https://github.com/thunderstornX/secure-python-pipeline-template.git
 cd secure-python-pipeline-template
+
+# Install scanners (Semgrep is heavy; install separately if needed)
+pip install -r requirements.txt
+pip install semgrep   # optional, for Gate 1 locally
+
+# Run the full pipeline locally
+./scripts/local_scan.sh example-project/
 ```
 
-### 2. Run the pipeline locally
+Real output of `./scripts/local_scan.sh example-project/` on this repo:
 
-```bash
-./scripts/local_scan.sh              # scan the whole repo
-./scripts/local_scan.sh example-project/  # scan just the example app
-```
+![local_scan output](paper/figures/local_scan.png)
 
-**Real output from `local_scan.sh` on the example-project:**
-
-```
-=== Secure Python Pipeline — Local Scan ===
-Target : .../example-project
-Reports: .../scan-reports
-
-Gate 1: SAST (Semgrep)
-[PASS] Semgrep: no findings
-
-Gate 2: Secrets (Trufflehog v3)
-[PASS] Trufflehog: no verified secrets
-
-Gate 3: Python Security (Bandit)
-[main]  INFO  running on Python 3.10.12
-Test results:
-    No issues identified.
-Code scanned:
-    Total lines of code: 203
-[PASS] Bandit: no medium/high issues
-
-Gate 4: Dependencies (pip-audit)
-No known vulnerabilities found
-[PASS] pip-audit: no known CVEs
-
-=== Pipeline Summary ===
-All gates passed. Ready to push.
-```
-
-### 3. Run the example-project tests
+Run the example-project test suite:
 
 ```bash
 cd example-project
 python -m pytest tests/ -v
 ```
 
-**Real output:**
-
-```
-tests/test_items.py::test_create_item_returns_201 PASSED              [  5%]
-tests/test_items.py::test_create_item_unknown_owner_returns_404 PASSED [ 11%]
-tests/test_items.py::test_get_item PASSED                             [ 17%]
-tests/test_items.py::test_delete_item PASSED                          [ 23%]
-tests/test_items.py::test_item_price_validation PASSED                [ 29%]
-tests/test_items.py::test_list_items PASSED                           [ 35%]
-tests/test_users.py::test_create_user_returns_201 PASSED              [ 41%]
-tests/test_users.py::test_create_user_duplicate_returns_409 PASSED    [ 47%]
-tests/test_users.py::test_get_user_by_id PASSED                       [ 52%]
-tests/test_users.py::test_get_nonexistent_user_returns_404 PASSED     [ 58%]
-tests/test_users.py::test_list_users PASSED                           [ 64%]
-tests/test_users.py::test_password_validation[short-422] PASSED       [ 70%]
-tests/test_users.py::test_password_validation[alllowercase1-422] PASSED [ 76%]
-tests/test_users.py::test_password_validation[NOLOWER1NUMBER-201] PASSED [ 82%]
-tests/test_users.py::test_password_validation[NoDigitAtAll!!-422] PASSED [ 88%]
-tests/test_users.py::test_password_validation[Str0ngPass99!-201] PASSED [ 94%]
-tests/test_users.py::test_sql_injection_in_username_is_sanitised PASSED [100%]
-
-17 passed in 3.59s
-```
+![pytest output](paper/figures/pytest.png)
 
 ---
 
@@ -117,27 +73,35 @@ tests/test_users.py::test_sql_injection_in_username_is_sanitised PASSED [100%]
 ├── .semgrep/
 │   └── rules.yml             # 8 custom CWE-mapped rules (OWASP Top 10)
 ├── .trufflehog/
-│   └── config.yml            # exclude test fixtures and vendored clones
+│   └── exclude-paths.txt     # secret-scan path excludes
 ├── bandit.yml                # Bandit configuration (medium+ threshold)
 ├── scripts/
-│   └── local_scan.sh         # run all 4 gates locally with colour output
+│   ├── local_scan.sh         # run all 4 gates locally with colour output
+│   └── render_terminal.py    # render captured terminal output to PNG
 ├── example-project/          # reference FastAPI app demonstrating mitigations
 │   ├── app/
 │   │   ├── main.py           # lifespan startup, router registration
-│   │   ├── config.py         # pydantic-settings: all secrets from env vars
+│   │   ├── auth.py           # HMAC-signed bearer tokens (avoids JOSE CVEs)
+│   │   ├── config.py         # pydantic-settings: secrets from env vars
 │   │   ├── database.py       # SQLite WAL mode, parameterised queries only
-│   │   ├── models.py         # Pydantic input validation + bcrypt hashing
+│   │   ├── models.py         # Pydantic input validation
 │   │   └── routes/
-│   │       ├── users.py      # CRUD: bcrypt, parameterised SQL, 409 dedup
-│   │       └── items.py      # CRUD: foreign-key constraint, price validation
-│   └── tests/                # 17 tests covering happy paths + adversarial inputs
+│   │       ├── users.py      # bcrypt, TOCTOU-safe insert, /login + /logout
+│   │       └── items.py      # IDOR-safe: owner_id derived from JWT, never the request
+│   └── tests/
+│       ├── test_users.py     # 15 tests: auth + SQLi + password policy
+│       ├── test_items.py     # 9 tests: auth + IDOR + price validation
+│       ├── test_semgrep_rules.py  # 1 test: every custom rule fires
+│       └── fixtures/         # synthetic fake-secret fixtures (Trufflehog excludes)
 ├── eval/
-│   ├── run_eval.py           # harness: Bandit + pip-audit across 5 OSS projects
-│   ├── results.csv           # pre-computed gate results
-│   └── analysis.md           # findings discussion
+│   ├── run_eval.py           # harness: live Bandit + Semgrep + pip-audit on 5 projects
+│   ├── results.csv           # machine-readable gate results
+│   ├── analysis.md           # per-project finding breakdown
+│   └── semgrep_corpus.py     # one positive match per custom rule (self-test target)
 └── paper/
-    ├── paper.tex             # IEEE two-column, 4 pages
-    └── paper.pdf
+    ├── paper.tex             # IEEE two-column, 5 pages
+    ├── paper.pdf
+    └── figures/              # screenshots embedded in the paper
 ```
 
 ---
@@ -149,29 +113,41 @@ Eight project-local rules in `.semgrep/rules.yml`, all CWE-mapped:
 | Rule | CWE | Severity |
 |------|-----|----------|
 | `ali-hardcoded-secret-assignment` | CWE-798 | ERROR |
-| `ali-sql-injection-f-string` | CWE-89 | ERROR |
+| `ali-sql-injection-string-build` | CWE-89 | ERROR |
 | `ali-insecure-deserialisation` | CWE-502 | ERROR |
-| `ali-web-framework-debug-enabled` | CWE-489 | ERROR |
+| `ali-web-framework-debug-enabled` (Flask + FastAPI + Django) | CWE-489 | ERROR |
 | `ali-weak-password-hash` | CWE-327 | ERROR |
 | `ali-ssrf-fstring-in-url` | CWE-918 | WARNING |
 | `ali-command-injection` | CWE-78 | ERROR |
 | `ali-dynamic-code-evaluation` | CWE-95 | ERROR |
 
+Every rule is verified by `test_semgrep_rules.py`, which scans
+`eval/semgrep_corpus.py` and asserts every rule ID appears in the results.
+
 ---
 
 ## Empirical Evaluation
 
-The pipeline was evaluated against 5 OSS Python projects at pinned release tags.
+The pipeline was evaluated against 5 OSS Python projects at pinned release
+tags. **All gates run live** against shallow clones (Bandit, pip-audit,
+Semgrep); Trufflehog uses a dated snapshot when its binary is absent.
 
 | Project | Stars | Bandit | pip-audit | Semgrep | Trufflehog | Overall |
 |---------|-------|--------|-----------|---------|------------|---------|
-| httpie 3.2.4 | 32k | FAIL | PASS | FAIL | PASS | **FAIL** |
-| rich 13.9.4 | 49k | PASS | PASS | PASS | PASS | **PASS** |
-| fastapi 0.115.6 | 78k | PASS | PASS | FAIL | PASS | **FAIL** |
-| black 24.10.0 | 38k | PASS | PASS | PASS | PASS | **PASS** |
-| ruff 0.8.4 | 33k | PASS | PASS | PASS | PASS | **PASS** |
+| httpie 3.2.4 | 32k | PASS | PASS | 1 (FAIL) | PASS | **FAIL** |
+| rich v13.9.4 | 49k | PASS | PASS | 1 (FAIL) | PASS | **FAIL** |
+| fastapi 0.115.6 | 78k | PASS | PASS | 12 (FAIL) | PASS | **FAIL** |
+| black 24.10.0 | 38k | PASS | PASS | 12 (FAIL) | PASS | **FAIL** |
+| ruff 0.8.4 | 33k | PASS | PASS | 4 (FAIL) | PASS | **FAIL** |
 
-3/5 projects pass all four gates. See [`eval/analysis.md`](eval/analysis.md) for full findings.
+**Reading the table:** All 5 projects pass dependency-CVE and secret-leak
+gates cleanly. SAST surfaces findings on every project — every one of which
+is manually triaged in [`eval/analysis.md`](eval/analysis.md) as a true
+positive, intentional design choice (e.g., `compile()` inside `black` is
+inherent to a code formatter), or test-fixture noise. A pipeline that did
+*not* surface findings on these projects would be dangerously under-tuned.
+
+![eval harness output](paper/figures/eval_harness.png)
 
 Re-run the evaluation:
 
@@ -189,9 +165,9 @@ python eval/run_eval.py              # re-clone at pinned tags (needs network)
 | Semgrep | `pip install semgrep` |
 | Trufflehog v3 | `curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh \| sh -s -- -b /usr/local/bin` |
 | Bandit | `pip install bandit==1.8.6` |
-| pip-audit | `pip install pip-audit==2.7.3` |
+| pip-audit | `pip install pip-audit==2.10.0` |
 
-Or install all at once:
+Or install the scanners pinned in this repo:
 
 ```bash
 pip install -r requirements.txt
@@ -205,12 +181,14 @@ pip install -r requirements.txt
 @software{bhutto2025securepipeline,
   author    = {Bhutto, Ali Murtaza},
   title     = {secure-python-pipeline-template},
-  year      = {2025},
+  year      = {2026},
   doi       = {10.5281/zenodo.XXXXXXX},
   url       = {https://github.com/thunderstornX/secure-python-pipeline-template},
   orcid     = {0009-0007-2787-943X}
 }
 ```
+
+> **Note:** The DOI placeholder `XXXXXXX` is replaced on first Zenodo deposit.
 
 Related research:
 - [OSINT Tools Framework](https://doi.org/10.5281/zenodo.16921792)
