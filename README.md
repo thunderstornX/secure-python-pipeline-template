@@ -178,7 +178,7 @@ pip install -r requirements.txt
 ## Citing this work
 
 ```bibtex
-@software{bhutto2025securepipeline,
+@software{bhutto2026securepipeline,
   author    = {Bhutto, Ali Murtaza},
   title     = {secure-python-pipeline-template},
   year      = {2026},
@@ -199,4 +199,4 @@ Related research:
 
 ## License
 
-MIT © 2025 Ali Murtaza Bhutto
+MIT © 2026 Ali Murtaza Bhutto

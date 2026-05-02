@@ -13,7 +13,7 @@ url: "https://github.com/thunderstornX/secure-python-pipeline-template"
 repository-code: "https://github.com/thunderstornX/secure-python-pipeline-template"
 license: MIT
 version: "1.0.0"
-date-released: "2025-01-01"
+date-released: "2026-05-02"
 keywords:
   - DevSecOps
   - CI/CD
