@@ -1,0 +1,7 @@
+# Path patterns excluded from Trufflehog scanning.
+# Format: one POSIX-extended regex per line (matched against the file path).
+# Comments (lines starting with `#`) and blank lines are ignored.
+example-project/tests/fixtures/.*
+eval/cloned_repos/.*
+eval/semgrep_corpus\.py$
+paper/.*\.pdf$

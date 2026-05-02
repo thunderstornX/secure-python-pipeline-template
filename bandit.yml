@@ -11,14 +11,24 @@
 # (eval/cloned_repos contains third-party code we benchmark against; do not
 # audit it as if it were ours. tests/ is excluded only in selected projects;
 # here we keep tests in scope but skip B101 below.)
+#
+# Note: Bandit's exclude_dirs matches as a substring on each scanned path.
+# Use bare directory names (no leading slash) so the match fires on relative
+# paths in repo checkouts.
 exclude_dirs:
-  - "/tests"
-  - "/eval/cloned_repos"
-  - "/.venv"
-  - "/venv"
-  - "/build"
-  - "/dist"
-  - "/.git"
+  - "tests"
+  - "eval/cloned_repos"
+  - ".venv"
+  - "venv"
+  - "build"
+  - "dist"
+  - ".git"
+
+# Specific files excluded from scanning (Bandit doesn't support
+# `exclude` keys on files, so we list them in the wrapper script).
+# - eval/semgrep_corpus.py contains intentional bad patterns used as
+#   the Semgrep self-test corpus; it is excluded via the `--exclude` CLI
+#   flag in scripts/local_scan.sh and the workflow.
 
 # Selectively skip individual checks.
 # B101 (assert_used) is intentionally allowed in tests via path-based skip

@@ -8,12 +8,21 @@
 #   severity ERROR   -> the security pipeline must fail on a match
 #   severity WARNING -> the pipeline reports but does not fail
 #   severity INFO    -> hygiene reminder, never fails
+#
+# Each rule is evaluated against the test fixtures in
+# example-project/tests/fixtures/semgrep_corpus.py to catch regressions.
 
 rules:
 
   # ---------------------------------------------------------------------------
   # 1. Hardcoded credential-shaped string assignment
   # ---------------------------------------------------------------------------
+  # The regex catches the most common pattern: `<credential-named-var> = "<literal>"`.
+  # Charset includes base64 / JWT / slack-token characters (+ / = . :).
+  # Limitations (documented honestly):
+  #   - Will not match dictionary defaults masquerading as creds (low entropy)
+  #   - Will not match annotated assignments like `pw: str = "value"`
+  #   - Trufflehog v3 is the canonical detector for verified secrets in history
   - id: ali-hardcoded-secret-assignment
     languages: [python]
     severity: ERROR
@@ -26,7 +35,7 @@ rules:
       os.getenv() or a settings object (pydantic-settings) instead of
       committing the value to source control.
     pattern-regex: >-
-      (?i)\b(password|passwd|pwd|secret|api[_-]?key|access[_-]?key|token|auth[_-]?token|client[_-]?secret)\s*=\s*["'][A-Za-z0-9_\-]{8,}["']
+      (?i)(?<![A-Za-z0-9_])(password|passwd|pwd|secret|api[_-]?key|access[_-]?key|token|auth[_-]?token|client[_-]?secret|aws[_-]?secret)\s*=\s*["'][A-Za-z0-9_\-+/=.:~]{12,}["']
     paths:
       exclude:
         - "**/tests/**"
@@ -35,9 +44,11 @@ rules:
         - "**/fixtures/**"
 
   # ---------------------------------------------------------------------------
-  # 2. SQL injection: f-string or .format() inside an execute() call
+  # 2. SQL injection: f-string / .format() / % / + interpolation in execute()
   # ---------------------------------------------------------------------------
-  - id: ali-sql-injection-f-string
+  # Covers sqlite3 / psycopg2 / mysql.connector (sync) and asyncpg / databases
+  # (await form), plus SQLAlchemy text() construction.
+  - id: ali-sql-injection-string-build
     languages: [python]
     severity: ERROR
     metadata:
@@ -46,16 +57,27 @@ rules:
       owasp: "A03:2021 Injection"
     message: >-
       SQL string is interpolated with code-controllable input. Use
-      parameterised queries (?, :name, or your ORM's bound parameters)
-      instead of f-strings or .format().
+      parameterised queries (?, :name, $1, or your ORM's bound parameters)
+      instead of f-strings, .format(), %, or +.
     pattern-either:
-      - pattern: $CURSOR.execute(f"...", ...)
-      - pattern: $CURSOR.executemany(f"...", ...)
-      - pattern: $CONN.execute(f"...", ...)
-      - pattern: $CURSOR.execute("...".format(...), ...)
+      # f-string in DB-API execute / executemany
+      - pattern: $X.execute(f"...", ...)
+      - pattern: $X.executemany(f"...", ...)
+      - pattern: $X.executescript(f"...")
+      # awaited form (asyncpg / databases)
+      - pattern: await $X.execute(f"...", ...)
+      - pattern: await $X.executemany(f"...", ...)
+      - pattern: await $X.fetch(f"...", ...)
+      - pattern: await $X.fetchrow(f"...", ...)
+      # .format() variant
+      - pattern: $X.execute("...".format(...), ...)
+      - pattern: $X.executemany("...".format(...), ...)
+      # SQLAlchemy text() with f-string
+      - pattern: $X.execute(text(f"..."), ...)
+      - pattern: $X.execute(sqlalchemy.text(f"..."), ...)
 
   # ---------------------------------------------------------------------------
-  # 3. Insecure deserialisation: pickle / yaml.load / marshal
+  # 3. Insecure deserialisation: pickle / yaml.load / marshal / dill / shelve
   # ---------------------------------------------------------------------------
   - id: ali-insecure-deserialisation
     languages: [python]
@@ -65,21 +87,28 @@ rules:
       cwe: "CWE-502: Deserialization of Untrusted Data"
       owasp: "A08:2021 Software and Data Integrity Failures"
     message: >-
-      Deserialising untrusted input via pickle / yaml.load / marshal allows
-      arbitrary code execution. Use json, yaml.safe_load, or a schema-driven
-      parser (Pydantic) instead.
+      Deserialising untrusted input via pickle / yaml.load / marshal / dill
+      / shelve / jsonpickle allows arbitrary code execution. Use json,
+      yaml.safe_load, or a schema-driven parser (Pydantic) instead.
     pattern-either:
       - pattern: pickle.loads(...)
       - pattern: pickle.load(...)
       - pattern: cPickle.loads(...)
+      - pattern: cPickle.load(...)
       - pattern: marshal.loads(...)
+      - pattern: marshal.load(...)
+      - pattern: dill.loads(...)
+      - pattern: dill.load(...)
+      - pattern: jsonpickle.decode(...)
       - patterns:
           - pattern: yaml.load(...)
           - pattern-not: yaml.load(..., Loader=yaml.SafeLoader)
           - pattern-not: yaml.load(..., Loader=SafeLoader)
+          - pattern-not: yaml.load(..., yaml.SafeLoader)
+          - pattern-not: yaml.load(..., SafeLoader)
 
   # ---------------------------------------------------------------------------
-  # 4. Web framework debug=True in non-test code
+  # 4. Web-framework debug=True in non-test code (Flask / Django / FastAPI)
   # ---------------------------------------------------------------------------
   - id: ali-web-framework-debug-enabled
     languages: [python]
@@ -92,20 +121,30 @@ rules:
       exclude:
         - "**/tests/**"
         - "**/test_*.py"
+        - "**/fixtures/**"
     message: >-
       debug=True exposes interactive tracebacks, configuration, and (Flask)
       a remote-code-execution debugger. Drive this from an environment
       variable and default to False.
     pattern-either:
+      # Flask
       - pattern: $APP.run(..., debug=True, ...)
       - pattern: app.run(..., debug=True, ...)
+      # FastAPI / Starlette constructor
+      - pattern: FastAPI(..., debug=True, ...)
+      - pattern: Starlette(..., debug=True, ...)
+      # Django / Flask config constants
       - pattern: |
           DEBUG = True
       - pattern: |
           settings.DEBUG = True
+      - pattern: |
+          app.config["DEBUG"] = True
+      - pattern: |
+          app.config['DEBUG'] = True
 
   # ---------------------------------------------------------------------------
-  # 5. Weak password hashing (MD5 / SHA1 / unsalted SHA-256)
+  # 5. Weak password hashing: MD5 / SHA-1 / unsalted SHA-256 near "password"
   # ---------------------------------------------------------------------------
   - id: ali-weak-password-hash
     languages: [python]
@@ -115,17 +154,26 @@ rules:
       cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
       owasp: "A02:2021 Cryptographic Failures"
     message: >-
-      MD5 / SHA1 are not safe for password storage. Use bcrypt, scrypt,
-      argon2id, or Django's PasswordHasher. Plain SHA-256 is also unsafe
-      for passwords (no work factor, no salt baked in).
+      MD5 / SHA-1 are not safe for password storage. Use bcrypt, scrypt,
+      argon2id, or Django's PasswordHasher. Plain SHA-256 lacks a work
+      factor and is also unsafe for passwords.
     pattern-either:
-      - pattern: hashlib.md5(...).hexdigest()
-      - pattern: hashlib.sha1(...).hexdigest()
+      # Direct constructor calls (any subsequent .hexdigest()/.digest())
+      - pattern: hashlib.md5(...)
+      - pattern: hashlib.sha1(...)
       - pattern: hashlib.new("md5", ...)
+      - pattern: hashlib.new('md5', ...)
       - pattern: hashlib.new("sha1", ...)
+      - pattern: hashlib.new('sha1', ...)
+      # Plain hashlib.sha256 used as a password hash (heuristic by var name)
+      - patterns:
+          - pattern: hashlib.sha256($X)
+          - metavariable-regex:
+              metavariable: $X
+              regex: "(?i)(password|passwd|pwd|secret)"
 
   # ---------------------------------------------------------------------------
-  # 6. Server-Side Request Forgery: requests with f-string URL
+  # 6. Server-Side Request Forgery: f-string URL in outbound HTTP call
   # ---------------------------------------------------------------------------
   - id: ali-ssrf-fstring-in-url
     languages: [python]
@@ -139,15 +187,26 @@ rules:
       allow-list, resolve the hostname once, and reject private/loopback
       ranges before issuing the request.
     pattern-either:
+      # requests
       - pattern: requests.get(f"...", ...)
       - pattern: requests.post(f"...", ...)
+      - pattern: requests.put(f"...", ...)
+      - pattern: requests.delete(f"...", ...)
       - pattern: requests.request(..., url=f"...", ...)
+      # urllib
       - pattern: urllib.request.urlopen(f"...")
+      - pattern: urllib.request.urlopen(f"...", ...)
+      # httpx (sync + async)
       - pattern: httpx.get(f"...", ...)
       - pattern: httpx.post(f"...", ...)
+      - pattern: await $C.get(f"...", ...)
+      - pattern: await $C.post(f"...", ...)
+      # aiohttp
+      - pattern: aiohttp.ClientSession().get(f"...", ...)
+      - pattern: aiohttp.ClientSession().post(f"...", ...)
 
   # ---------------------------------------------------------------------------
-  # 7. Command injection: shell=True or os.system with f-string
+  # 7. Command injection: shell=True with f-string OR f-string in argv[0]
   # ---------------------------------------------------------------------------
   - id: ali-command-injection
     languages: [python]
@@ -157,14 +216,21 @@ rules:
       cwe: "CWE-78: OS Command Injection"
       owasp: "A03:2021 Injection"
     message: >-
-      Building a shell command with code-controllable input enables OS
-      command injection. Pass argv as a list with shell=False and validate
-      executable paths.
+      Building a shell command (or argv[0]) with code-controllable input
+      enables OS command injection. Pass argv as a list with shell=False,
+      and validate executable paths against an allow-list.
     pattern-either:
+      # subprocess + shell=True with f-string
       - pattern: subprocess.run(f"...", shell=True, ...)
       - pattern: subprocess.call(f"...", shell=True, ...)
       - pattern: subprocess.Popen(f"...", shell=True, ...)
       - pattern: subprocess.check_output(f"...", shell=True, ...)
+      - pattern: subprocess.check_call(f"...", shell=True, ...)
+      - pattern: subprocess.getoutput(f"...")
+      # f-string in argv[0] even without shell=True
+      - pattern: subprocess.run([f"...", ...], ...)
+      - pattern: subprocess.Popen([f"...", ...], ...)
+      # os.system / os.popen
       - pattern: os.system(f"...")
       - pattern: os.popen(f"...")
 
@@ -178,6 +244,10 @@ rules:
       category: security
       cwe: "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code"
       owasp: "A03:2021 Injection"
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/fixtures/**"
     message: >-
       eval / exec / compile execute arbitrary Python. If you need to parse
       a structured expression, use ast.literal_eval, json.loads, or a
@@ -187,3 +257,5 @@ rules:
       - pattern: exec(...)
       - pattern: compile(..., ..., "exec")
       - pattern: compile(..., ..., "eval")
+      - pattern: compile(..., ..., 'exec')
+      - pattern: compile(..., ..., 'eval')
