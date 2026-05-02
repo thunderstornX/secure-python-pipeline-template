@@ -28,15 +28,20 @@ build/
 *.swp
 .DS_Store
 
+# local_scan.sh writes reports here (ignored, but kept for the user)
+.scan-reports/
+
+# Stray top-level reports if any tool is run from the repo root manually
 bandit-report.json
 semgrep-report.json
 trufflehog-report.json
+pip-audit-report.txt
 *.log
 
 eval/.cache/
 eval/cloned_repos/
 
-paper/IEEEtran.cls
+# LaTeX build artefacts (we DO commit IEEEtran.cls and the compiled PDF)
 paper/*.aux
 paper/*.log
 paper/*.out
@@ -46,5 +51,10 @@ paper/*.blg
 paper/*.synctex.gz
 paper/*.fdb_latexmk
 paper/*.fls
+
+# Example app's local SQLite DB
+example-project/*.db
+example-project/*.db-wal
+example-project/*.db-shm
 
 node_modules/
