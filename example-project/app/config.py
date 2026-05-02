@@ -7,7 +7,9 @@ class Settings(BaseSettings):
     app_name: str = "SecurePipelineExample"
     debug: bool = False
     database_url: str = "sqlite:///./example.db"
-    # Secret used to seed PBKDF2; loaded from environment, never hardcoded.
+    # HMAC key used by the demo bearer-token signer; sourced from the
+    # SECRET_KEY environment variable in production. The placeholder default
+    # is intentionally non-secret -- never deploy with this value.
     secret_key: str = "change-me-via-SECRET_KEY-env-var"
     bcrypt_rounds: int = 12
 

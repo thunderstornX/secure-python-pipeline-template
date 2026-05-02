@@ -1,5 +1,16 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
+"""
+Pydantic models for request and response payloads.
+
+The password validator enforces a deliberately-minimal policy
+(length + uppercase + digit) for demo readability.  Production should
+use NIST SP 800-63B guidance: length-only, with a breach-corpus check.
+"""
+
+from __future__ import annotations
+
 import re
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserCreate(BaseModel):
@@ -25,6 +36,16 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=32)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
 class ItemCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     description: str = Field(default="", max_length=1024)
@@ -39,8 +60,3 @@ class ItemResponse(BaseModel):
     owner_id: int
 
     model_config = {"from_attributes": True}
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"

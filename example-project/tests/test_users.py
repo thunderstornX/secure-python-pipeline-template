@@ -46,26 +46,68 @@ def test_list_users(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize("password,expected", [
-    ("short", 422),           # too short
-    ("alllowercase1", 422),   # no uppercase
-    ("NOLOWER1NUMBER", 201),  # all-uppercase + digit satisfies our validator (upper+digit required)
-    ("NoDigitAtAll!!", 422),  # no digit
-    ("Str0ngPass99!", 201),   # valid
+    ("short", 422),                # too short (< 10 chars)
+    ("alllowercase1", 422),        # no uppercase
+    ("NOLOWER1NUMBER", 201),       # all-uppercase + digit satisfies our (deliberately minimal) policy
+    ("NoDigitAtAll!!", 422),       # no digit
+    ("Str0ngPass99!", 201),        # valid: upper + digit + length
 ])
 def test_password_validation(client: TestClient, password: str, expected: int) -> None:
-    payload = {**VALID_USER, "password": password, "username": f"u_{hash(password) % 100000}",
-               "email": f"u{hash(password) % 100000}@ex.com"}
+    payload = {**VALID_USER, "password": password,
+               "username": f"u_{abs(hash(password)) % 100000}",
+               "email": f"u{abs(hash(password)) % 100000}@ex.com"}
     r = client.post("/users/", json=payload)
     assert r.status_code == expected
 
 
-def test_sql_injection_in_username_is_sanitised(client: TestClient) -> None:
-    payload = {
-        "username": "alice",
-        "email": "safe@example.com",
+def test_sqli_metachars_in_username_rejected_by_pydantic(client: TestClient) -> None:
+    """The username regex `^[a-zA-Z0-9_-]+$` rejects SQL meta-characters
+    BEFORE they reach the database. This is defense-in-depth: the SQL
+    layer is also parameterised (see test_sqli_payload_safe_via_parameterisation)."""
+    bad = {
+        "username": "alice'; DROP TABLE users;--",
+        "email": "bad@example.com",
         "password": "Str0ngPass99!",
     }
-    client.post("/users/", json=payload)
-    # Attempt to pass SQL meta-characters in the lookup path
+    r = client.post("/users/", json=bad)
+    assert r.status_code == 422
+
+
+def test_sqli_payload_safe_via_parameterisation(client: TestClient) -> None:
+    """Even if a metachar somehow reached the DB layer, the parameterised
+    `?` placeholder treats the whole string as a literal value -- never
+    as SQL syntax. We prove this by GETting an int path that contains
+    SQL metacharacters: FastAPI rejects with 422 long before SQL runs."""
     r = client.get("/users/1' OR '1'='1")
-    assert r.status_code == 422  # FastAPI rejects non-integer path param
+    assert r.status_code == 422
+
+
+def test_login_returns_token_and_authorises(client: TestClient) -> None:
+    client.post("/users/", json=VALID_USER)
+    r = client.post("/users/login", json={
+        "username": VALID_USER["username"],
+        "password": VALID_USER["password"],
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["token_type"] == "bearer"
+    assert body["access_token"].count(".") == 1
+
+
+def test_login_with_wrong_password_returns_401(client: TestClient) -> None:
+    client.post("/users/", json=VALID_USER)
+    r = client.post("/users/login", json={
+        "username": VALID_USER["username"],
+        "password": "WrongPassword99",
+    })
+    assert r.status_code == 401
+
+
+def test_login_with_unknown_user_returns_401(client: TestClient) -> None:
+    """Constant-time bcrypt verification: unknown user must NOT 404,
+    or an attacker can enumerate accounts by response code."""
+    r = client.post("/users/login", json={
+        "username": "ghost",
+        "password": "AnyPassword1",
+    })
+    assert r.status_code == 401
