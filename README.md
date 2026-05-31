@@ -1,6 +1,6 @@
 # secure-python-pipeline-template
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20480702.svg)](https://doi.org/10.5281/zenodo.20480702)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20479928.svg)](https://doi.org/10.5281/zenodo.20479928)
 [![Security Pipeline](https://github.com/thunderstornX/secure-python-pipeline-template/actions/workflows/security.yml/badge.svg)](https://github.com/thunderstornX/secure-python-pipeline-template/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -182,13 +182,15 @@ pip install -r requirements.txt
   author    = {Bhutto, Ali Murtaza},
   title     = {secure-python-pipeline-template},
   year      = {2026},
-  doi       = {10.5281/zenodo.XXXXXXX},
+  doi       = {10.5281/zenodo.20479928},
   url       = {https://github.com/thunderstornX/secure-python-pipeline-template},
   orcid     = {0009-0007-2787-943X}
 }
 ```
 
-> **Note:** The DOI placeholder `XXXXXXX` is replaced on first Zenodo deposit.
+> The DOI above is the **concept DOI** — it always resolves to the latest
+> release. Version 1.0.0 is archived at
+> [10.5281/zenodo.20480013](https://doi.org/10.5281/zenodo.20480013).
 
 Related research:
 - [OSINT Tools Framework](https://doi.org/10.5281/zenodo.16921792)
