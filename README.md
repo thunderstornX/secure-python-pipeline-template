@@ -1,6 +1,6 @@
 # secure-python-pipeline-template
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX) <!-- DOI placeholder; replaced on first Zenodo deposit -->
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20480702.svg)](https://doi.org/10.5281/zenodo.20480702)
 [![Security Pipeline](https://github.com/thunderstornX/secure-python-pipeline-template/actions/workflows/security.yml/badge.svg)](https://github.com/thunderstornX/secure-python-pipeline-template/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
