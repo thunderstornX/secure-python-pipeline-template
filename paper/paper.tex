@@ -506,9 +506,13 @@ bias exists toward well-maintained projects; the true false-negative rate
 on less-reviewed codebases may be higher.
 
 \textbf{Tool-version sensitivity.} Semgrep's community rule packs evolve;
-results may differ under different versions. We pin
-\texttt{semgrep==1.161.0} (and \texttt{returntocorp/semgrep:1.96.0} for
-the CI container) for reproducibility.
+results may differ under different versions. CI runs Semgrep in a pinned
+container (\texttt{returntocorp/semgrep:1.96.0}) for reproducibility;
+local runs install Semgrep unpinned (it carries heavyweight transitive
+dependencies that conflict with the scanner's own requirements), so
+locally reproduced finding counts may differ slightly with the installed
+Semgrep version. The eval results in this paper were produced with
+\texttt{semgrep 1.161.0}.
 
 \textbf{Snapshot staleness.} The Trufflehog column uses a dated snapshot
 when the binary is absent locally. The snapshot date is recorded in
